@@ -93,14 +93,14 @@ class ReflexAgent(Agent):
         foodHereReward = 3
 
         furtherFromGhostReward = 4
-        closerToCapsuleReward = 5
+        closerToCapsuleReward = 1
 
         # Penalties:
         # ==============================================
 
         furtherFromFoodP = -3
         closerToGhostP = -4
-        furtherFromCapsuleP = -5
+        furtherFromCapsuleP = -2
 
         # ==============================================
 
@@ -118,7 +118,7 @@ class ReflexAgent(Agent):
             furtherFromFoodP *= 2
             furtherFromCapsuleP *= 2
 
-
+        # MAKE PACMAN STOP STALLING
 
 
         # THINGS THAT INCREASE OR DECREASE THE SCORE
@@ -327,6 +327,16 @@ class MinimaxAgent(MultiAgentSearchAgent):
             return self.MINvalue(gameState, agentIndex, depthSoFar)
 
 
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+
+
+
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
     Your minimax agent with alpha-beta pruning (question 3)
@@ -334,10 +344,60 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
 
     def getAction(self, gameState):
         """
-        Returns the minimax action using self.depth and self.evaluationFunction
+          Returns the minimax action from the current gameState using self.depth
+          and self.evaluationFunction.
+          Here are some method calls that might be useful when implementing minimax.
+          gameState.getLegalActions(agentIndex):
+            Returns a list of legal actions for an agent
+            agentIndex=0 means Pacman, ghosts are >= 1
+          gameState.generateSuccessor(agentIndex, action):
+            Returns the successor game state after an agent takes an action
+          gameState.getNumAgents():
+            Returns the total number of agents in the game
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        print("MinimaxAgent with depth ", self.depth)
+        legal = gameState.getLegalActions(0)
+        successors = [gameState.generateSuccessor(0, action) for action in legal]
+        maxValue = -float('inf')
+        goalIndex = 0
+        for x in range(len(successors)):
+            actionValue = self.value(successors[x], 1, 0)
+            if actionValue > maxValue:
+                maxValue = actionValue
+                goalIndex = x
+
+        return legal[goalIndex]
+
+    def MAXvalue(self, gameState, agentIndex, depthSoFar):
+        legal = gameState.getLegalActions(agentIndex)
+        successors = [gameState.generateSuccessor(agentIndex, action) for action in legal]
+        x = -float('inf')
+        for successor in successors:
+            x = max(x, self.value(successor, 1, depthSoFar))
+        return x
+
+    def MINvalue(self, gameState, agentIndex, depthSoFar):
+        legal = gameState.getLegalActions(agentIndex)
+        successors = [gameState.generateSuccessor(agentIndex, action) for action in legal]
+        x = float('inf')
+        for successor in successors:
+            if agentIndex + 1 == gameState.getNumAgents():  # all the ghost(s) finished their turn, Pacman next
+                x = min(x, self.value(successor, 0, depthSoFar + 1))
+            else:  # Another ghost's turn
+                x = min(x, self.value(successor, agentIndex + 1, depthSoFar))
+        return x
+
+    def value(self, gameState, agentIndex, depthSoFar):
+
+        "If requisite no. of searches complete, evaluation function"
+        if depthSoFar == self.depth or gameState.isWin() or gameState.isLose():
+            return self.evaluationFunction(gameState)
+        "If agentIndex is 0, perform MAX"
+        if agentIndex == 0:
+            return self.MAXvalue(gameState, agentIndex, depthSoFar)
+        "Else (if agentindex > 0), perform MIN"
+        if agentIndex > 0:
+            return self.MINvalue(gameState, agentIndex, depthSoFar)
 
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
