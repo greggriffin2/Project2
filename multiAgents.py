@@ -113,12 +113,15 @@ class ReflexAgent(Agent):
         # If the ghosts are far away or are scared, don't punish for getting nearer to them,
         # instead incentivize food and capsules
         currDistToGhosts = [distanceTo(currentGameState.getPacmanPosition(), ghostXY) for ghostXY in ghostPositions]
-        if (min(currDistToGhosts) > 5) or newScaredTimes != 0:
+        if min(currDistToGhosts) > 5:
             closerToGhostP = 0
             furtherFromFoodP *= 2
             furtherFromCapsuleP *= 2
 
-        # THINGS THAT INCREASE THE SCORE
+
+
+
+        # THINGS THAT INCREASE OR DECREASE THE SCORE
         # ------------------------------------------
         foodList = newFood.asList()
         # IF state has food increase the score
@@ -126,34 +129,27 @@ class ReflexAgent(Agent):
             if newPos == xy:
                 score += foodHereReward
 
-        # IF state is getting closer to food increase the score
+        # Modify the score based on food
         f = foodDistanceCalc(currentGameState, successorGameState, foodList, closerToFoodReward, furtherFromFoodP)
-        print("\n\nfoodDistanceCalc:: " + str(f))
         try:
             score += f
         except TypeError:
             pass
 
-        # IF state is getting closer to a capsule then increase the score
+        # Modify the score based on capsules
         c = capsuleDistanceCalc(currentGameState, successorGameState, closerToCapsuleReward, furtherFromCapsuleP)
-        print("\n\ncapsuleDistanceCalc:: " + str(c))
         try:
             score += c
         except TypeError:
             pass
-
-        # THINGS THAT DECREASE THE SCORE
-        # ------------------------------------------
 
         # IF state has a ghost heavily penalize
         for item in ghostPositions:
             if newPos == item:
                 score -= 100
 
-        # IF newPos is closer to a ghost than the lastPos then punish
-
+        # Modify the score based on ghosts
         g = ghostDistanceCalc(currentGameState, successorGameState, furtherFromGhostReward, closerToGhostP)
-        print("\n\nghostDistanceCalc:: " + str(g) + "\n\n")
         try:
             score += g
         except TypeError:
