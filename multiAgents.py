@@ -14,7 +14,7 @@
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
 
 
-import random, util
+import random, util, math
 
 from game import Agent
 
@@ -68,26 +68,172 @@ class ReflexAgent(Agent):
         """
         # Useful information you can extract from a GameState (pacman.py)
         successorGameState = currentGameState.generatePacmanSuccessor(action)
-        print("----------------------" +
-              "\n\nSuccessor Game State:: \n" + str(successorGameState))
+        # print("----------------------\n\nSuccessor Game State:: \n" + str(successorGameState))
 
         newPos = successorGameState.getPacmanPosition()
-        print("\n\nNew Position:: " + str(newPos))
+        # print("\n\nNew Position:: " + str(newPos))
 
         newFood = successorGameState.getFood()
-        print("\n\nNew Food:: \n" + str(newFood))
+        # print("\n\nNew Food:: \n" + str(newFood))
 
         newGhostStates = successorGameState.getGhostStates()
-        print("\n\nNew Ghost States:: \n")
-        for i in newGhostStates:
-            print(str(i) + "\n")
+        # print("\n\nNew Ghost States:: \n")
+        # for i in newGhostStates:
+        # print(str(i) + "\n")
 
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
-        print("\n\nNew Scared Times:: " + str(newScaredTimes) + "\n\n\n\n")
+        # print("\n\nNew Scared Times:: " + str(newScaredTimes) + "\n\n\n\n")
 
         "*** YOUR CODE HERE ***"
 
-        return successorGameState.getScore()
+        # Rewards:
+        # ==============================================
+
+        closerToFoodReward = 3
+        foodHereReward = 3
+
+        furtherFromGhostReward = 4
+        closerToCapsuleReward = 5
+
+        # Penalties:
+        # ==============================================
+
+        furtherFromFoodP = -3
+        closerToGhostP = -4
+        furtherFromCapsuleP = -5
+
+        # ==============================================
+
+        # Positions of the ghosts
+        ghostPositions = [ghostState.getPosition() for ghostState in newGhostStates]
+
+        # Value to be modified and returned
+        score = 100
+
+        # If the ghosts are far away or are scared, don't punish for getting nearer to them,
+        # instead incentivize food and capsules
+        currDistToGhosts = [distanceTo(currentGameState.getPacmanPosition(), ghostXY) for ghostXY in ghostPositions]
+        if (min(currDistToGhosts) > 5) or newScaredTimes != 0:
+            closerToGhostP = 0
+            furtherFromFoodP *= 2
+            furtherFromCapsuleP *= 2
+
+        # THINGS THAT INCREASE THE SCORE
+        # ------------------------------------------
+        foodList = newFood.asList()
+        # IF state has food increase the score
+        for xy in foodList:
+            if newPos == xy:
+                score += foodHereReward
+
+        # IF state is getting closer to food increase the score
+        f = foodDistanceCalc(currentGameState, successorGameState, foodList, closerToFoodReward, furtherFromFoodP)
+        print("\n\nfoodDistanceCalc:: " + str(f))
+        try:
+            score += f
+        except TypeError:
+            pass
+
+        # IF state is getting closer to a capsule then increase the score
+        c = capsuleDistanceCalc(currentGameState, successorGameState, closerToCapsuleReward, furtherFromCapsuleP)
+        print("\n\ncapsuleDistanceCalc:: " + str(c))
+        try:
+            score += c
+        except TypeError:
+            pass
+
+        # THINGS THAT DECREASE THE SCORE
+        # ------------------------------------------
+
+        # IF state has a ghost heavily penalize
+        for item in ghostPositions:
+            if newPos == item:
+                score -= 100
+
+        # IF newPos is closer to a ghost than the lastPos then punish
+
+        g = ghostDistanceCalc(currentGameState, successorGameState, furtherFromGhostReward, closerToGhostP)
+        print("\n\nghostDistanceCalc:: " + str(g) + "\n\n")
+        try:
+            score += g
+        except TypeError:
+            pass
+
+        # print(str(distanceTo(newPos, ghostPositions[0])))
+        # return successorGameState.getScore()
+        return score
+
+
+def distanceTo(xy1, xy2):
+    """
+    Returns the cartesian distance to xy2 from xy1
+    """
+    result = math.sqrt(((xy1[0] - xy2[0]) ** 2) + ((xy1[1] - xy2[1]) ** 2))
+    return round(result, 2)
+
+
+def foodDistanceCalc(currState, succState, foodList, r, p):
+    """
+    Takes the current and successor states and the boolean grid of food values and returns a number to incentivize
+    picking successors that are closer to food
+
+    If the successor is closer to the closest food on the board, then pick that one
+    """
+
+    # Lists of the distances to the ghosts for the current state and the successor state
+    currDistTo = [distanceTo(currState.getPacmanPosition(), foodXY) for foodXY in foodList]
+    succDistTo = [distanceTo(succState.getPacmanPosition(), foodXY) for foodXY in foodList]
+
+    try:
+        if min(currDistTo) > min(succDistTo):
+            return r
+        else:
+            return p
+    except ValueError:
+        return
+
+
+def ghostDistanceCalc(currState, succState, r, p):
+    """
+    Returns a reward or punishment based on if the successor being explored is becoming closer to a ghost or not
+    """
+    currGhosts = currState.getGhostStates()
+    succGhosts = succState.getGhostStates()
+    currStateGhosts = [ghostState.getPosition() for ghostState in currGhosts]
+    succStateGhosts = [ghostState.getPosition() for ghostState in succGhosts]
+
+    # Lists of the distances to the ghosts for the current state and the successor state
+    currDistTo = [distanceTo(currState.getPacmanPosition(), ghostXY) for ghostXY in currStateGhosts]
+    succDistTo = [distanceTo(succState.getPacmanPosition(), ghostXY) for ghostXY in succStateGhosts]
+
+    # Create a list of the difference between the current and successors node's distances to the ghosts
+    try:
+        if min(currDistTo) < min(succDistTo):
+            return r
+        else:
+            return p
+    except ValueError:
+        return
+
+
+def capsuleDistanceCalc(currState, succState, r, p):
+    """
+    Returns a reward or punishment based on if the successor being explored is becoming closer to a capsule or not
+    """
+    currStateCapsules = currState.getCapsules()
+    succStateCapsules = succState.getCapsules()
+
+    # Lists of the distances to the capsules for the current state and the successor state
+    currDistTo = [distanceTo(currState.getPacmanPosition(), capsuleXY) for capsuleXY in currStateCapsules]
+    succDistTo = [distanceTo(succState.getPacmanPosition(), capsuleXY) for capsuleXY in succStateCapsules]
+
+    try:
+        if min(currDistTo) > min(succDistTo):
+            return r
+        else:
+            return p
+    except ValueError:
+        return
 
 
 def scoreEvaluationFunction(currentGameState):
