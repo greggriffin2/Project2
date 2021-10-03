@@ -110,7 +110,7 @@ class ReflexAgent(Agent):
         # Value to be modified and returned
         score = 100
 
-        # If the ghosts are far away or are scared, don't punish for getting nearer to them,
+        # If the ghosts are far away, don't punish for getting nearer to them,
         # instead incentivize food and capsules
         currDistToGhosts = [distanceTo(currentGameState.getPacmanPosition(), ghostXY) for ghostXY in ghostPositions]
         if min(currDistToGhosts) > 5:
@@ -119,7 +119,6 @@ class ReflexAgent(Agent):
             furtherFromCapsuleP *= 2
 
         # MAKE PACMAN STOP STALLING
-
 
         # THINGS THAT INCREASE OR DECREASE THE SCORE
         # ------------------------------------------
@@ -322,7 +321,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
         "If agentIndex is 0, perform MAX"
         if agentIndex == 0:
             return self.MAXvalue(gameState, agentIndex, depthSoFar)
-        "Else (if agentindex > 0), perform MIN"
+        "Else (if agentIndex > 0), perform MIN"
         if agentIndex > 0:
             return self.MINvalue(gameState, agentIndex, depthSoFar)
 
@@ -334,7 +333,6 @@ class MinimaxAgent(MultiAgentSearchAgent):
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
-
 
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
@@ -355,7 +353,84 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
           gameState.getNumAgents():
             Returns the total number of agents in the game
         """
-        print("MinimaxAgent with depth ", self.depth)
+
+        print("AlphaBetaAgent with depth ", self.depth)
+        legal = gameState.getLegalActions(0)
+        successors = [gameState.generateSuccessor(0, action) for action in legal]
+        maxValue = -float('inf')
+        goalIndex = 0
+        for x in range(len(successors)):
+            actionValue = self.value(successors[x], 1, 0, -float('inf'), float('inf'))
+            if actionValue > maxValue:
+                maxValue = actionValue
+                goalIndex = x
+
+        return legal[goalIndex]
+
+    def MAXvalue(self, gameState, agentIndex, depthSoFar, alpha, beta):
+        legal = gameState.getLegalActions(agentIndex)
+        successors = [gameState.generateSuccessor(agentIndex, action) for action in legal]
+        x = -float('inf')
+        for successor in successors:
+            x = max(x, self.value(successor, 1, depthSoFar, alpha, beta))
+            if x > beta:
+                return x
+            alpha = max(alpha, x)
+        return x
+
+    def MINvalue(self, gameState, agentIndex, depthSoFar, alpha, beta):
+        legal = gameState.getLegalActions(agentIndex)
+        successors = [gameState.generateSuccessor(agentIndex, action) for action in legal]
+        x = float('inf')
+        for successor in successors:
+            if agentIndex + 1 == gameState.getNumAgents():  # all the ghost(s) finished their turn, Pacman next
+                x = min(x, self.value(successor, 0, depthSoFar + 1, alpha, beta))
+                if x < alpha:
+                    return x
+                beta = min(beta, x)
+            else:  # Another ghost's turn
+                x = min(x, self.value(successor, agentIndex + 1, depthSoFar, alpha, beta))
+                if x < alpha:
+                    return x
+                beta = min(beta, x)
+        return x
+
+    def value(self, gameState, agentIndex, depthSoFar, alpha, beta):
+
+        "If requisite no. of searches complete, evaluation function"
+        if depthSoFar == self.depth or gameState.isWin() or gameState.isLose():
+            return self.evaluationFunction(gameState)
+        "If agentIndex is 0, perform MAX"
+        if agentIndex == 0:
+            return self.MAXvalue(gameState, agentIndex, depthSoFar, alpha, beta)
+        "Else (if agentIndex > 0), perform MIN"
+        if agentIndex > 0:
+            return self.MINvalue(gameState, agentIndex, depthSoFar, alpha, beta)
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+
+class ExpectimaxAgent(MultiAgentSearchAgent):
+    """
+      Your expectimax agent (question 4)
+    """
+
+    def getAction(self, gameState):
+        """
+        Returns the expectimax action using self.depth and self.evaluationFunction
+
+        All ghosts should be modeled as choosing uniformly at random from their
+        legal moves.
+        """
+        "*** YOUR CODE HERE ***"
+
+        print("ExpectimaxAgent with depth ", self.depth)
         legal = gameState.getLegalActions(0)
         successors = [gameState.generateSuccessor(0, action) for action in legal]
         maxValue = -float('inf')
@@ -376,16 +451,24 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
             x = max(x, self.value(successor, 1, depthSoFar))
         return x
 
-    def MINvalue(self, gameState, agentIndex, depthSoFar):
+    # Creates a list of successors that took random actions, then for each successor, adds its value to x.
+    # then returns x divided by the amount of successors to get the expected value.
+
+    # THIS IS NOT CORRECT
+    def EXPECTIvalue(self, gameState, agentIndex, depthSoFar):
         legal = gameState.getLegalActions(agentIndex)
-        successors = [gameState.generateSuccessor(agentIndex, action) for action in legal]
-        x = float('inf')
+        successors = []  # May need to create this list differently, with or without the random choice
+        for i in range(len(legal)):
+            successors.append(gameState.generateSuccessor(agentIndex, random.choice(legal)))
+
+        # Change this block
+        x = 0
         for successor in successors:
             if agentIndex + 1 == gameState.getNumAgents():  # all the ghost(s) finished their turn, Pacman next
-                x = min(x, self.value(successor, 0, depthSoFar + 1))
+                x += self.value(successor, 0, depthSoFar + 1)
             else:  # Another ghost's turn
-                x = min(x, self.value(successor, agentIndex + 1, depthSoFar))
-        return x
+                x += self.value(successor, agentIndex + 1, depthSoFar)
+        return x / len(successors)
 
     def value(self, gameState, agentIndex, depthSoFar):
 
@@ -395,25 +478,9 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         "If agentIndex is 0, perform MAX"
         if agentIndex == 0:
             return self.MAXvalue(gameState, agentIndex, depthSoFar)
-        "Else (if agentindex > 0), perform MIN"
+        "Else (if agentIndex > 0), perform EXPECTI"
         if agentIndex > 0:
-            return self.MINvalue(gameState, agentIndex, depthSoFar)
-
-
-class ExpectimaxAgent(MultiAgentSearchAgent):
-    """
-      Your expectimax agent (question 4)
-    """
-
-    def getAction(self, gameState):
-        """
-        Returns the expectimax action using self.depth and self.evaluationFunction
-
-        All ghosts should be modeled as choosing uniformly at random from their
-        legal moves.
-        """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+            return self.EXPECTIvalue(gameState, agentIndex, depthSoFar)
 
 
 def betterEvaluationFunction(currentGameState):
