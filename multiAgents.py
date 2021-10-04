@@ -451,17 +451,12 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
             x = max(x, self.value(successor, 1, depthSoFar))
         return x
 
-    # Creates a list of successors that took random actions, then for each successor, adds its value to x.
-    # then returns x divided by the amount of successors to get the expected value.
-
-    # THIS IS NOT CORRECT
+    # Creates a list of successors for each legal move. Then, add to x the score of each successor.
+    # At the end, return x divided by the amount of successors, which means that each successor had an equal probability
     def EXPECTIvalue(self, gameState, agentIndex, depthSoFar):
         legal = gameState.getLegalActions(agentIndex)
-        successors = []  # May need to create this list differently, with or without the random choice
-        for i in range(len(legal)):
-            successors.append(gameState.generateSuccessor(agentIndex, random.choice(legal)))
+        successors = [gameState.generateSuccessor(agentIndex, action) for action in legal]
 
-        # Change this block
         x = 0
         for successor in successors:
             if agentIndex + 1 == gameState.getNumAgents():  # all the ghost(s) finished their turn, Pacman next
