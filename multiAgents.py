@@ -392,11 +392,17 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
 
         return legal[goalIndex]
 
+    # legal = gameState.getLegalActions(agentIndex)
+    # successors = [gameState.generateSuccessor(agentIndex, action) for action in legal]
+    # x = -float('inf')
+    # for successor in successors:
+
+
     def MAXvalue(self, gameState, agentIndex, depthSoFar, alpha, beta):
         legal = gameState.getLegalActions(agentIndex)
-        successors = [gameState.generateSuccessor(agentIndex, action) for action in legal]
         x = -float('inf')
-        for successor in successors:
+        for action in legal:
+            successor = gameState.generateSuccessor(agentIndex, action)
             x = max(x, self.value(successor, 1, depthSoFar, alpha, beta))
             if x > beta:
                 return x
@@ -405,9 +411,9 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
 
     def MINvalue(self, gameState, agentIndex, depthSoFar, alpha, beta):
         legal = gameState.getLegalActions(agentIndex)
-        successors = [gameState.generateSuccessor(agentIndex, action) for action in legal]
         x = float('inf')
-        for successor in successors:
+        for action in legal:
+            successor = gameState.generateSuccessor(agentIndex, action)
             if agentIndex + 1 == gameState.getNumAgents():  # all the ghost(s) finished their turn, Pacman next
                 x = min(x, self.value(successor, 0, depthSoFar + 1, alpha, beta))
                 if x < alpha:
