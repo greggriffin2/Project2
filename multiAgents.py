@@ -377,14 +377,18 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         for x in range(len(successors)):
             firstTime = False
             actionValue = self.value(successors[x], 1, 0, alpha, beta)
+
             if self.minVal:
                 self.minVal = False
                 if actionValue > alpha:
                     alpha = actionValue
+
             if self.maxVal:
                 self.maxVal = False
                 if actionValue < beta:
-                    beta = actionValue
+                    if actionValue != alpha:
+                        beta = actionValue
+
             if actionValue > maxValue:
                 maxValue = actionValue
                 alpha = maxValue
