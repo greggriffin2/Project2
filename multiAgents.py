@@ -90,17 +90,17 @@ class ReflexAgent(Agent):
         # ==============================================
 
         closerToFoodReward = 3
-        foodHereReward = 3
+        foodHereReward = 2
 
         furtherFromGhostReward = 4
-        closerToCapsuleReward = 1
+        closerToCapsuleReward = 2
 
         # Penalties:
         # ==============================================
 
         furtherFromFoodP = -3
         closerToGhostP = -4
-        furtherFromCapsuleP = -2
+        furtherFromCapsuleP = -3
 
         # ==============================================
 
@@ -110,15 +110,23 @@ class ReflexAgent(Agent):
         # Value to be modified and returned
         score = 100
 
-        # If the ghosts are far away, don't punish for getting nearer to them,
-        # instead incentivize food and capsules
-        currDistToGhosts = [distanceTo(currentGameState.getPacmanPosition(), ghostXY) for ghostXY in ghostPositions]
-        if min(currDistToGhosts) > 5:
-            closerToGhostP = 0
-            furtherFromFoodP *= 2
-            furtherFromCapsuleP *= 2
 
-        # MAKE PACMAN STOP STALLING
+        scared = False
+        # If the ghosts are far away, don't punish for getting nearer to them,
+        # instead incentivize food and capsules. Incentivize more if the ghosts are very far away
+        currDistToGhosts = [distanceTo(currentGameState.getPacmanPosition(), ghostXY) for ghostXY in ghostPositions]
+        if min(currDistToGhosts) > 10:
+            closerToGhostP = 4
+            furtherFromFoodP *= 5
+            furtherFromCapsuleP *= 4
+        if min(currDistToGhosts) > 5:
+            closerToGhostP = 2
+            furtherFromFoodP *= 3.2
+            furtherFromCapsuleP *= 2
+        # if the ghosts are scared, set scared to true and incentivize pacman moving closer to the ghosts
+        if min(newScaredTimes) > 0:
+            scared = True
+            closerToGhostP = 15
 
         # THINGS THAT INCREASE OR DECREASE THE SCORE
         # ------------------------------------------
@@ -128,31 +136,26 @@ class ReflexAgent(Agent):
             if newPos == xy:
                 score += foodHereReward
 
-        # Modify the score based on food
+
+
+        # Modify the score based on distance to closest food
         f = foodDistanceCalc(currentGameState, successorGameState, foodList, closerToFoodReward, furtherFromFoodP)
-        try:
-            score += f
-        except TypeError:
-            pass
+        score += f
 
-        # Modify the score based on capsules
+        # Modify the score based on distance to closest capsule
         c = capsuleDistanceCalc(currentGameState, successorGameState, closerToCapsuleReward, furtherFromCapsuleP)
-        try:
-            score += c
-        except TypeError:
-            pass
+        score += c
 
-        # IF state has a ghost heavily penalize
+        # IF state has a ghost heavily penalize, but only if the ghosts are not scared
         for item in ghostPositions:
             if newPos == item:
-                score -= 100
+                if not scared:
+                    score -= 100
 
-        # Modify the score based on ghosts
+        # Modify the score based on distance to closest ghost
         g = ghostDistanceCalc(currentGameState, successorGameState, furtherFromGhostReward, closerToGhostP)
-        try:
-            score += g
-        except TypeError:
-            pass
+        score += g
+
 
         # print(str(distanceTo(newPos, ghostPositions[0])))
         # return successorGameState.getScore()
@@ -162,6 +165,10 @@ class ReflexAgent(Agent):
 def distanceTo(xy1, xy2):
     """
     Returns the cartesian distance to xy2 from xy1
+
+    Used as a helper function to the functions below.
+
+    After I wrote this I realized there is a manhattan distance function built in....
     """
     result = math.sqrt(((xy1[0] - xy2[0]) ** 2) + ((xy1[1] - xy2[1]) ** 2))
     return round(result, 2)
@@ -172,7 +179,7 @@ def foodDistanceCalc(currState, succState, foodList, r, p):
     Takes the current and successor states and the boolean grid of food values and returns a number to incentivize
     picking successors that are closer to food
 
-    If the successor is closer to the closest food on the board, then pick that one
+    If the successor is closer to the closest food on the board, then return a reward, else punish
     """
 
     # Lists of the distances to the ghosts for the current state and the successor state
@@ -185,12 +192,13 @@ def foodDistanceCalc(currState, succState, foodList, r, p):
         else:
             return p
     except ValueError:
-        return
+        return 0
 
 
 def ghostDistanceCalc(currState, succState, r, p):
     """
-    Returns a reward or punishment based on if the successor being explored is becoming closer to a ghost or not
+    Returns a reward or punishment based on if the successor being explored is becoming closer to the nearest ghost
+    or not
     """
     currGhosts = currState.getGhostStates()
     succGhosts = succState.getGhostStates()
@@ -208,12 +216,13 @@ def ghostDistanceCalc(currState, succState, r, p):
         else:
             return p
     except ValueError:
-        return
+        return 0
 
 
 def capsuleDistanceCalc(currState, succState, r, p):
     """
-    Returns a reward or punishment based on if the successor being explored is becoming closer to a capsule or not
+    Returns a reward or punishment based on if the successor being explored is becoming closer to the closest
+    capsule or not
     """
     currStateCapsules = currState.getCapsules()
     succStateCapsules = succState.getCapsules()
@@ -228,7 +237,7 @@ def capsuleDistanceCalc(currState, succState, r, p):
         else:
             return p
     except ValueError:
-        return
+        return 0
 
 
 def scoreEvaluationFunction(currentGameState):
@@ -339,6 +348,8 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
     """
     Your minimax agent with alpha-beta pruning (question 3)
     """
+    minVal = False
+    maxVal = False
 
     def getAction(self, gameState):
         """
@@ -357,12 +368,26 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         print("AlphaBetaAgent with depth ", self.depth)
         legal = gameState.getLegalActions(0)
         successors = [gameState.generateSuccessor(0, action) for action in legal]
+        firstTime = True
         maxValue = -float('inf')
+        if firstTime:
+            alpha = -float('inf')
+            beta = float('inf')
         goalIndex = 0
         for x in range(len(successors)):
-            actionValue = self.value(successors[x], 1, 0, -float('inf'), float('inf'))
+            firstTime = False
+            actionValue = self.value(successors[x], 1, 0, alpha, beta)
+            if self.minVal:
+                self.minVal = False
+                if actionValue > alpha:
+                    alpha = actionValue
+            if self.maxVal:
+                self.maxVal = False
+                if actionValue < beta:
+                    beta = actionValue
             if actionValue > maxValue:
                 maxValue = actionValue
+                alpha = maxValue
                 goalIndex = x
 
         return legal[goalIndex]
@@ -402,9 +427,11 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
             return self.evaluationFunction(gameState)
         "If agentIndex is 0, perform MAX"
         if agentIndex == 0:
+            self.maxVal = True
             return self.MAXvalue(gameState, agentIndex, depthSoFar, alpha, beta)
         "Else (if agentIndex > 0), perform MIN"
         if agentIndex > 0:
+            self.minVal = True
             return self.MINvalue(gameState, agentIndex, depthSoFar, alpha, beta)
 
 
